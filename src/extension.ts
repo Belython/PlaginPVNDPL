@@ -104,6 +104,7 @@ context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(updateStatus
  
   // update status bar item once at start
 updateStatusBarItem();
+setTimeout(function(){ inspector.close(); }, 10000);
 }
  
  
