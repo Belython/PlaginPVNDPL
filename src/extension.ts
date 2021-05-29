@@ -2,92 +2,85 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import * as path from "path";  // читаем файлы с диска и нам потребуется путь к ним
-import * as util from "util"; // метод удобный интерфесй промисоф
+import * as path from "path"; 
+import * as util from "util"; 
 import * as inspector from "inspector"; 
  
 const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0);
-const commandId = 'pvndpl5.helloWorld2';
+const commandId = 'pvndpl.totalline';
  
 const addDecorationWithText = (         
   contentText: string,
-  line: number,            // номер строчки 
-  column: number,       //  номер колонки в котором будет отображаться 
-  activeEditor: vscode.TextEditor   // текущее окно редактора 
+  line: number,      
+  column: number,   
+  activeEditor: vscode.TextEditor   
 ) => {
-  const decorationType = vscode.window.createTextEditorDecorationType({     //(каждый раз будет создавать свой тип)
+  const decorationType = vscode.window.createTextEditorDecorationType({   
     after: {
-      contentText,  // текст
+      contentText, 
       margin: "20px"  
     }
   });
  
-  const range = new vscode.Range(  // диапазон  в котором наша декорация активна 
-    new vscode.Position(line, column),   // номер строки
-    new vscode.Position(line, column)    // номер колонки
+  const range = new vscode.Range( 
+    new vscode.Position(line, column), 
+    new vscode.Position(line, column)    
   );
  
-  activeEditor.setDecorations(decorationType, [{ range }]);  // передаем decorationType и  range
+  activeEditor.setDecorations(decorationType, [{ range }]);  
 };
  
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
-export async function activate(context: vscode.ExtensionContext) {  // делаем функцию асинхронной, для того чтобы использовать синтаксис асинк авей
+export async function activate(context: vscode.ExtensionContext) {  
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
   console.log('Congratulations, your extension "wombat" is now active!'); 
  
  
-  const session = new inspector.Session(); // получим новую сессию из инспектора
-  session.connect(); // запускаем новое соединение 
-  const post = <any>util.promisify(session.post).bind(session); // обернули в метод промисоф из ютил, для испольщования удобного интерфейса промисоф
-                                                                            //пишем bind для правильной работы 
-																			// из за того что post перегружена используем тип <any>
-  //   const on = <any>util.promisify(session.on).bind(session);
-  await post("Debugger.enable"); // активируем  Debugger
-  await post("Runtime.enable"); // активируем  Runtime
+  const session = new inspector.Session(); 
+  session.connect(); 
+  const post = <any>util.promisify(session.post).bind(session); 
+  await post("Debugger.enable"); 
+  await post("Runtime.enable"); 
  
-  let disposable = vscode.commands.registerCommand( 'pvndpl5.helloWorld', async () => { // делаем переданный туда кулбэк асинхронным
-      const activeEditor = vscode!.window!.activeTextEditor; // получаем текущий активный редактор 
-      if (!activeEditor) { // если текущий активный редактор не доступен, то останавливаем выполнение
+  let disposable = vscode.commands.registerCommand( 'pvndpl.getvalues', async () => {
+      const activeEditor = vscode!.window!.activeTextEditor; 
+      if (!activeEditor) { 
         return;
       }
  
-      const document = activeEditor!.document; // получаем ссылку на активный документ из редактора через точку
-      const fileName = path.basename(document.uri.toString()); // получаем название файла из документа
+      const document = activeEditor!.document; 
+      const fileName = path.basename(document.uri.toString());
  
-      // on("Runtime.executionContextCreated", (data: any) => {
-      //   console.log("EXECUTION CONTEXT", data);
-      // });
-      // приступаем к выполнению скрипта, для начала копилируем
-      const { scriptId } = await post("Runtime.compileScript", {  // получим значение скрипта выполнив скрипт 
-        expression: document.getText(),          // передаем текст самого скрипта
-        sourceURL: fileName,                        // передаем название файла
-        persistScript: true                               // что скрипт не затирался true 
+      const { scriptId } = await post("Runtime.compileScript", {  
+        expression: document.getText(),         
+        sourceURL: fileName,                        
+        persistScript: true                               
       });
  
-      await post("Runtime.runScript", {              // запуск скрипта
-        scriptId                                                      // передаем скрипт id
+      await post("Runtime.runScript", {              
+        scriptId                                                     
       });
-      const data = await post("Runtime.globalLexicalScopeNames", {        // нужно получить имена переменных 
-        executionContextId: 1                                                                      // контекст id (берем переменные только из глобального контекста)
+      const data = await post("Runtime.globalLexicalScopeNames", {       
+        executionContextId: 1                                                                    
       });
-      data.names.map(async (expression: string) => {        // проходимся в цикле по именам переменных через асинхрон кулбек 
+      data.names.map(async (expression: string) => {      
         const {
-          result: { value } // значение переменной
+          result: { value } 
         } = await post("Runtime.evaluate", {
-          expression, // передаем выражение 
+          expression, 
           contextId: 1 
         });
-        const { result } = await post("Debugger.searchInContent", {      // где находиться 
-          scriptId,                   // скрипт id
-          query: expression   //  запрос - название переменной  
+        const { result } = await post("Debugger.searchInContent", {      
+          scriptId,                
+          query: expression   
         });
-        addDecorationWithText(          // отображение результата в файле
-          `${value}`,                   // значение переенной 
-          result[0].lineNumber,      // номер строки 
-          result[0].lineContent.length,    // номер ячейки (сколько в этой строке сиволов)
-          activeEditor                   // активный редактор   
+        addDecorationWithText(         
+          `${value}`,                  
+          result[0].lineNumber,    
+          result[0].lineContent.length,   
+          activeEditor              
         );
       });
  
